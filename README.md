@@ -285,6 +285,15 @@ When a mod developer releases an update with new skills, items, or quests:
 
 ---
 
+## 🛡️ Translation Safety & Logging
+
+* **Zero Error Leakage Guarantee**: The tool strictly prevents raw engine error messages (such as MyMemory 500-character query limits, rate-limit warnings, or HTTP 429 errors) from ever being written into your game localization files or cached as translations. If a web service encounters an error, the batch is safely rejected and preserved in its original text.
+* **Audit Logging (`translation.log`)**: Every translation session automatically writes timestamped progress and diagnostics to `translation.log` (created in both your script folder and `BepInEx/config/translation.log`). You can check this log at any time to verify which engine translated each mod and view any API warnings.
+* **RPG Stat Formatting**: Game modifiers using dynamic placeholders (such as `{0} increased {1}` or `{0} rune shield recharge delay`) are parsed with token protection and localized using natural gaming conventions (e.g. `{0} erhöhte(r) {1}`).
+
+---
+
 ## 💬 Share With the Mod Community!
 
 Once you've translated a mod, share your translation file in the mod developer's Discord channel! Community developers appreciate translations and often package them into official releases so players worldwide can benefit.
+
