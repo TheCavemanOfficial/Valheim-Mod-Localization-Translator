@@ -24,6 +24,7 @@ import html
 import random
 import urllib.request
 import urllib.parse
+from datetime import datetime
 
 # Ensure utf-8 encoding on Windows console
 if hasattr(sys.stdout, 'reconfigure'):
@@ -103,7 +104,66 @@ def unmask_tokens(translated_text, tokens):
     # Clean up excess spaces added by machine translation
     res = re.sub(r'(\d+)\s+%', r'\1%', res)
     res = re.sub(r'\+\s+(\d+)', r'+\1', res)
+    res = re.sub(r'[ \t]{2,}', ' ', res)
     return res.strip()
+
+ERROR_MARKERS = [
+    "QUERY LENGTH LIMIT EXCEEDED",
+    "MYMEMORY WARNING",
+    "YOU USED ALL AVAILABLE FREE TRANSLATIONS",
+    "TOO MANY REQUESTS",
+    "HTTP 429",
+    "RATE LIMIT",
+    "QUOTA EXCEEDED",
+    "CURL ERROR",
+]
+
+def is_error_string(text: str) -> bool:
+    """Detects if a string is a raw engine error message accidentally saved as a translation"""
+    if not text:
+        return False
+    u = text.upper()
+    return any(marker in u for marker in ERROR_MARKERS)
+
+def normalize_text_for_compare(s: str) -> str:
+    """Strips tokens, formatting, and collapses whitespace for accurate translation detection"""
+    if not s:
+        return ""
+    s = re.sub(r'\{[^}]+\}', '', s)
+    s = re.sub(r'<[^>]+>', '', s)
+    s = re.sub(r'\s+', ' ', s).strip().lower()
+    return s
+
+def is_untranslated_english(cached_dst: str, src_text: str) -> bool:
+    """Checks if a translation candidate is either an engine error or identical to English"""
+    if not cached_dst or not src_text:
+        return False
+    if is_error_string(cached_dst):
+        return True
+    # Direct match ignoring whitespace
+    if re.sub(r'\s+', ' ', cached_dst).strip().lower() == re.sub(r'\s+', ' ', src_text).strip().lower():
+        if any(c.isalpha() for c in src_text.strip()):
+            return True
+    # Token-stripped match (catches {0} increased {1} when dst has desynced spacing)
+    norm_dst = normalize_text_for_compare(cached_dst)
+    norm_src = normalize_text_for_compare(src_text)
+    if norm_dst and norm_dst == norm_src and any(c.isalpha() for c in norm_src):
+        return True
+    return False
+
+def log_event(message: str, bepinex_dir: str = None):
+    """Writes timestamped messages to translation.log in script dir and BepInEx/config"""
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    line = f"[{timestamp}] {message}\n"
+    targets = [os.path.join(os.path.dirname(os.path.abspath(__file__)), "translation.log")]
+    if bepinex_dir and os.path.isdir(os.path.join(bepinex_dir, "config")):
+        targets.append(os.path.join(bepinex_dir, "config", "translation.log"))
+    for t in targets:
+        try:
+            with open(t, "a", encoding="utf-8") as f:
+                f.write(line)
+        except Exception:
+            pass
 
 def translate_batch_mymemory(text_list, target_lang, source_lang="en"):
     """Backup translation engine using MyMemory API when Google is IP-throttled"""
@@ -124,7 +184,7 @@ def translate_batch_mymemory(text_list, target_lang, source_lang="en"):
                 if data.get("responseStatus") != 200:
                     return [], False
                 raw = html.unescape(data.get("responseData", {}).get("translatedText", ""))
-                if not raw or "MYMEMORY WARNING" in raw.upper():
+                if not raw or is_error_string(raw):
                     return [], False
                 parts = re.split(r'\s*<<<DIV>>>\s*', raw)
                 while len(parts) < len(chunk):
@@ -746,6 +806,8 @@ def main():
 
     # Seed cache with existing translations
     for k, v in existing_map.items():
+        if is_error_string(v):
+            continue
         if k not in cache or not cache[k].get("dst"):
             cache[k] = {"src": "", "dst": v}
 
@@ -788,9 +850,9 @@ def main():
             missing += 1
         else:
             dst = entry.get("dst", "").strip()
-            if not dst:
+            if not dst or is_error_string(dst):
                 missing += 1
-            elif dst.lower() == text.strip().lower() and any(c.isalpha() for c in text):
+            elif is_untranslated_english(dst, text):
                 still_english += 1
             else:
                 genuine_trans += 1
@@ -838,8 +900,11 @@ def main():
             cached_entry = cache[k]
             cached_src = cached_entry.get("src", "")
             cached_dst = cached_entry.get("dst", "")
+            if is_error_string(cached_dst):
+                plan.append(("translate", k, text, None))
+                continue
             if cached_dst and (cached_src == text or not cached_src):
-                is_eng = (cached_dst.strip().lower() == text.strip().lower() and any(c.isalpha() for c in text.strip()))
+                is_eng = is_untranslated_english(cached_dst, text)
                 if retranslate_english and is_eng:
                     plan.append(("translate", k, text, None))
                     continue
@@ -861,14 +926,21 @@ def main():
     results_dict = {}
 
     def write_output_to_disk():
+        plan_lookup = {p[1]: p[2] for p in plan if p[1]}
         if is_json:
             out_data = {}
             for item in plan:
                 k = item[1]
                 if item[0] == "reuse":
-                    out_data[k] = item[3]
+                    val = item[3]
+                    if is_error_string(val):
+                        val = item[2]
+                    out_data[k] = val
                 elif item[0] == "translate":
-                    out_data[k] = results_dict.get(k, cache.get(k, {}).get("dst", item[2]))
+                    val = results_dict.get(k, cache.get(k, {}).get("dst", item[2]))
+                    if is_error_string(val):
+                        val = item[2]
+                    out_data[k] = val
             with open(plugin_dest_file, "w", encoding="utf-8") as f:
                 json.dump(out_data, f, ensure_ascii=False, indent=2)
             if config_dest_file:
@@ -880,10 +952,15 @@ def main():
                 if item[0] == "comment":
                     lines_out.append(item[2])
                 elif item[0] == "reuse":
-                    lines_out.append(f"{item[1]}\t{item[3]}\n")
+                    val = item[3]
+                    if is_error_string(val):
+                        val = plan_lookup.get(item[1], "")
+                    lines_out.append(f"{item[1]}\t{val}\n")
                 elif item[0] == "translate":
                     k = item[1]
                     trans = results_dict.get(k, cache.get(k, {}).get("dst", item[2]))
+                    if is_error_string(trans):
+                        trans = item[2]
                     lines_out.append(f"{k}\t{trans}\n")
             with open(plugin_dest_file, "w", encoding="utf-8") as f:
                 f.writelines(lines_out)
@@ -1046,10 +1123,33 @@ def main():
                 google_throttled = True
 
         if not success or not translations or len(translations) < len(buffer_keys):
+            log_event(f"[{engine_name}] Batch failed or returned empty response ({len(buffer_keys)} keys)", bepinex_root)
+            return False
+
+        # Verify that no items in the batch contain raw engine error messages
+        has_error = False
+        for k, res_text in zip(buffer_keys, translations):
+            if is_error_string(res_text):
+                log_event(f"[{engine_name}] Engine returned error on key '{k}': {res_text.strip()}", bepinex_root)
+                has_error = True
+
+        if has_error:
+            log_event(f"[{engine_name}] Discarded batch containing engine error strings to protect file integrity", bepinex_root)
             return False
 
         for k, res_text, tokens in zip(buffer_keys, translations, buffer_tokens):
             unmasked = unmask_tokens(res_text, tokens)
+            if is_error_string(unmasked):
+                continue
+            # Quality improvements for stats in German
+            if k == "@stat.fmt.increased" and target_code.lower() == "de":
+                unmasked = "{0} erhöhte(r) {1}"
+            elif k == "@stat.fmt.reduced" and target_code.lower() == "de":
+                unmasked = "{0} verringerte(r) {1}"
+            elif k == "@name.fmt.increased" and target_code.lower() == "de":
+                unmasked = "Erhöhte(r) {0}"
+            elif k == "@name.fmt.reduced" and target_code.lower() == "de":
+                unmasked = "Verringerte(r) {0}"
             results_dict[k] = unmasked
             cache[k] = {"src": plan_lookup.get(k, ""), "dst": unmasked}
 
