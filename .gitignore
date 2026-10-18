@@ -1,0 +1,14 @@
+# Cache and temporary state
+.*.cache.json
+.google_cooldown.json
+__pycache__/
+*.pyc
+
+# Distribution packages
+*.zip
+
+# IDE and OS files
+.vscode/
+.idea/
+Thumbs.db
+Desktop.ini
