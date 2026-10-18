@@ -25,6 +25,12 @@ import random
 import urllib.request
 import urllib.parse
 
+# Ensure utf-8 encoding on Windows console
+if hasattr(sys.stdout, 'reconfigure'):
+    sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+if hasattr(sys.stderr, 'reconfigure'):
+    sys.stderr.reconfigure(encoding='utf-8', errors='replace')
+
 # Mapping of common language codes to Valheim's internal translation names
 VALHEIM_LANG_MAP = {
     "de": "german",
@@ -595,11 +601,11 @@ def main():
 
     print("\n" + "=" * 78)
     print("[Disk Initialized] Ready on disk BEFORE translating:")
-    print(f"  📁 Mod Folder   : {mod_loc_dir}")
-    print(f"  📄 Plugin File  : {plugin_dest_file}")
+    print(f"  -> Mod Folder   : {mod_loc_dir}")
+    print(f"  -> Plugin File  : {plugin_dest_file}")
     if config_dest_file:
-        print(f"  📄 Config File  : {config_dest_file}")
-    print(f"  💾 Cache File   : {cache_path}")
+        print(f"  -> Config File  : {config_dest_file}")
+    print(f"  -> Cache File   : {cache_path}")
     print("=" * 78)
 
     # 4. Load Source Data
