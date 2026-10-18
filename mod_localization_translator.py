@@ -343,16 +343,14 @@ def scan_plugins_for_mods(bepinex_dir):
                     loc_candidates.append(os.path.join(root, f))
 
         if loc_candidates:
-            # Pick best English candidate
-            best_source = None
-            for cand in loc_candidates:
-                cand_base = os.path.basename(cand).lower()
-                if "english-for-translators" in cand_base:
-                    best_source = cand
-                    break
-                elif "english" in cand_base and not best_source:
-                    best_source = cand
-            if not best_source:
+            # Pick best English candidate (prefer most comprehensive English dictionary)
+            english_cands = [c for c in loc_candidates if "english" in os.path.basename(c).lower()]
+            if english_cands:
+                # Sort by size descending so full master dictionary (e.g. english.txt with 26k lines)
+                # is chosen rather than abridged or template versions (e.g. english-for-translators.txt)
+                english_cands.sort(key=lambda p: os.path.getsize(p) if os.path.exists(p) else 0, reverse=True)
+                best_source = english_cands[0]
+            else:
                 best_source = loc_candidates[0]
 
             if not loc_dir:
@@ -622,87 +620,109 @@ def main():
             existing_map.update(m2)  # Config overrides plugin as per mod developer design
             found_sources.append(os.path.basename(config_dest_file))
 
-    retranslate_english = False
-    if existing_map:
-        if not cache or len(existing_map) > len(cache):
-            print(f"\n[Existing Translation Detected] Found {len(existing_map):,} lines in existing translation files ({', '.join(found_sources)}).")
-            print("  [1] Keep existing translations, translate ONLY missing/empty lines (Default)")
-            print("  [2] Keep existing translations, but ALSO translate lines left in English")
-            print("  [3] Re-translate everything from scratch (ignore existing files)")
-            ans = input("Select mode [default: 1]: ").strip().lower()
-            if ans in ("", "1", "y", "yes"):
-                for k, v in existing_map.items():
-                    if k not in cache or not cache[k].get("dst"):
-                        cache[k] = {"src": "", "dst": v}
-            elif ans == "2":
-                retranslate_english = True
-                for k, v in existing_map.items():
-                    cache[k] = {"src": "", "dst": v}
-            elif ans in ["3", "scratch", "reset", "n", "no"]:
-                cache = {}
+    # Seed cache with existing translations
+    for k, v in existing_map.items():
+        if k not in cache or not cache[k].get("dst"):
+            cache[k] = {"src": "", "dst": v}
 
-    plan = []
+    # Load source keys and raw data
+    source_items = []
     if is_json:
         with open(source_file, "r", encoding="utf-8", errors="replace") as f:
             json_source_data = json.load(f)
-        total_items = len(json_source_data)
-        print(f"\nLoaded {total_items:,} keys from JSON source.")
-
+        print(f"\nLoaded {len(json_source_data):,} keys from JSON source.")
         for k, v in json_source_data.items():
-            str_v = str(v)
-            if not str_v.strip():
-                existing_val = cache.get(k, {}).get("dst", "")
-                plan.append(("reuse", k, "", existing_val))
-                continue
-            if k in cache:
-                cached_entry = cache[k]
-                cached_src = cached_entry.get("src", "")
-                cached_dst = cached_entry.get("dst", "")
-                if cached_dst and (cached_src == str_v or not cached_src):
-                    if retranslate_english and len(str_v.strip()) > 4 and cached_dst.strip().lower() == str_v.strip().lower():
-                        plan.append(("translate", k, str_v, None))
-                        continue
-                    plan.append(("reuse", k, str_v, cached_dst))
-                    continue
-            plan.append(("translate", k, str_v, None))
+            source_items.append((k, str(v)))
     else:
         with open(source_file, "r", encoding="utf-8", errors="replace") as f:
             source_lines = f.readlines()
-        total_items = len(source_lines)
-        print(f"\nLoaded {total_items:,} lines from text source.")
-
+        print(f"\nLoaded {len(source_lines):,} lines from text source.")
         for line in source_lines:
             if line.startswith("#") or not line.strip():
-                plan.append(("comment", None, line, None))
+                source_items.append((None, line))
                 continue
             if "\t" in line:
                 parts = line.split("\t", 1)
-                k = parts[0]
-                text = parts[1].rstrip("\r\n")
+                source_items.append((parts[0], parts[1].rstrip("\r\n")))
             elif ":" in line and not line.strip().startswith("http"):
                 parts = line.split(":", 1)
-                k = parts[0]
-                text = parts[1].strip().strip('"').strip("'")
+                source_items.append((parts[0].strip(), parts[1].strip().strip('"').strip("'")))
             else:
-                plan.append(("comment", None, line, None))
-                continue
+                source_items.append((None, line))
 
-            if not text.strip():
-                existing_val = cache.get(k, {}).get("dst", "")
-                plan.append(("reuse", k, "", existing_val))
-                continue
+    # Analyze translation progress against source items
+    genuine_trans = 0
+    still_english = 0
+    missing = 0
 
-            if k in cache:
-                cached_entry = cache[k]
-                cached_src = cached_entry.get("src", "")
-                cached_dst = cached_entry.get("dst", "")
-                if cached_dst and (cached_src == text or not cached_src):
-                    if retranslate_english and len(text.strip()) > 4 and cached_dst.strip().lower() == text.strip().lower():
-                        plan.append(("translate", k, text, None))
-                        continue
+    for item in source_items:
+        k, text = item
+        if k is None or not text.strip():
+            continue
+        entry = cache.get(k)
+        if not entry:
+            missing += 1
+        else:
+            dst = entry.get("dst", "").strip()
+            if not dst:
+                missing += 1
+            elif dst.lower() == text.strip().lower() and any(c.isalpha() for c in text):
+                still_english += 1
+            else:
+                genuine_trans += 1
+
+    retranslate_english = False
+    if genuine_trans > 0 or still_english > 0:
+        total_remaining = still_english + missing
+        print("\n" + "=" * 78)
+        print("                 TRANSLATION STATUS DETECTED")
+        print("=" * 78)
+        print(f"  -> Translated lines (Genuine)       : {genuine_trans:,}")
+        print(f"  -> Lines currently still in English : {still_english:,}")
+        print(f"  -> Completely missing lines         : {missing:,}")
+        print("=" * 78)
+
+        if total_remaining > 0:
+            print("\nHow would you like to proceed?")
+            print(f"  [1] Keep translated lines, translate all {total_remaining:,} remaining/English lines (Default)")
+            print(f"  [2] Keep existing translations as-is (translate ONLY {missing:,} completely missing lines)")
+            print("  [3] Re-translate everything from scratch (ignore existing files)")
+            ans = input("Select mode [default: 1]: ").strip().lower()
+            if ans in ("", "1", "y", "yes"):
+                retranslate_english = True
+            elif ans == "2":
+                retranslate_english = False
+            elif ans in ["3", "scratch", "reset", "n", "no"]:
+                cache = {}
+                retranslate_english = False
+        else:
+            print("\nAll strings are already translated!")
+
+    # Build execution plan
+    plan = []
+    for item in source_items:
+        k, text = item
+        if k is None:
+            plan.append(("comment", None, text, None))
+            continue
+        if not text.strip():
+            existing_val = cache.get(k, {}).get("dst", "")
+            plan.append(("reuse", k, "", existing_val))
+            continue
+
+        if k in cache:
+            cached_entry = cache[k]
+            cached_src = cached_entry.get("src", "")
+            cached_dst = cached_entry.get("dst", "")
+            if cached_dst and (cached_src == text or not cached_src):
+                is_eng = (cached_dst.strip().lower() == text.strip().lower() and any(c.isalpha() for c in text.strip()))
+                if retranslate_english and is_eng:
+                    plan.append(("translate", k, text, None))
+                    continue
+                if not is_eng or not retranslate_english:
                     plan.append(("reuse", k, text, cached_dst))
                     continue
-            plan.append(("translate", k, text, None))
+        plan.append(("translate", k, text, None))
 
     unchanged_count = sum(1 for p in plan if p[0] == "reuse")
     changed_count = sum(1 for p in plan if p[0] == "translate")
