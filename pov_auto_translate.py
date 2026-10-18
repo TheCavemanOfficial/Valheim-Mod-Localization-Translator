@@ -136,11 +136,50 @@ def translate_batch_mymemory(text_list, target_lang, source_lang="en"):
 
     return results[:len(text_list)], True
 
+DEEPL_KEY_FILENAME = ".deepl_key"
+
+def get_saved_deepl_key(bepinex_dir=None):
+    """Finds DeepL API key from environment variable or local config file (excluded from git)"""
+    env_key = os.environ.get("DEEPL_API_KEY", "").strip()
+    if env_key:
+        return env_key
+    candidates = []
+    if bepinex_dir:
+        candidates.append(os.path.join(bepinex_dir, "config", DEEPL_KEY_FILENAME))
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    candidates.append(os.path.join(script_dir, DEEPL_KEY_FILENAME))
+    for p in candidates:
+        if os.path.exists(p):
+            try:
+                with open(p, "r", encoding="utf-8") as f:
+                    k = f.read().strip()
+                    if k:
+                        return k
+            except Exception:
+                pass
+    return None
+
+def save_deepl_key(key, bepinex_dir=None):
+    """Saves DeepL key locally to BepInEx/config/.deepl_key (excluded from git)"""
+    if not key or not key.strip():
+        return
+    clean_key = key.strip()
+    save_dir = os.path.join(bepinex_dir, "config") if bepinex_dir and os.path.isdir(os.path.join(bepinex_dir, "config")) else os.path.dirname(os.path.abspath(__file__))
+    save_path = os.path.join(save_dir, DEEPL_KEY_FILENAME)
+    try:
+        os.makedirs(save_dir, exist_ok=True)
+        with open(save_path, "w", encoding="utf-8") as f:
+            f.write(clean_key)
+        print(f"  -> Key saved securely to: {save_path} (automatically ignored by git)")
+    except Exception as e:
+        print(f"  -> Note: could not save key locally ({e})")
+
 def translate_batch_deepl(text_list, target_lang, api_key, source_lang="en"):
-    """Official DeepL Free API translator (500k chars free/month, zero rate limits)"""
+    """Official DeepL API translator (auto-detects Free vs Pro endpoints, zero rate limits)"""
     if not text_list:
         return [], True
-    url = "https://api-free.deepl.com/v2/translate"
+    clean_key = api_key.strip()
+    url = "https://api-free.deepl.com/v2/translate" if clean_key.endswith(":fx") else "https://api.deepl.com/v2/translate"
     lang_map = {
         "en": "EN",
         "de": "DE",
@@ -798,12 +837,23 @@ def main():
         print("  [3] DeepL API (Requires Free DeepL Key - 500k chars/mo, Best Quality & 0 rate limits)")
 
     engine_choice = input("Select engine [default: 1]: ").strip().lower()
-    deepl_key = None
-    use_mymemory = False
+    def prompt_deepl_key():
+        saved = get_saved_deepl_key(bepinex_root)
+        if saved:
+            masked = saved[:4] + "..." + saved[-4:] if len(saved) >= 8 else "***"
+            use_saved = input(f"Found saved DeepL key ({masked}). Use it? [default: y]: ").strip().lower()
+            if use_saved in ("", "y", "yes"):
+                return saved
+        k = input("Enter your DeepL API Key: ").strip()
+        if k:
+            save_ans = input("Save key locally on this PC so you don't have to enter it again? [default: y]: ").strip().lower()
+            if save_ans in ("", "y", "yes"):
+                save_deepl_key(k, bepinex_root)
+        return k
 
     if google_on_cooldown:
         if engine_choice == "2":
-            deepl_key = input("Enter your DeepL API Key: ").strip()
+            deepl_key = prompt_deepl_key()
         elif engine_choice in ["3", "reset", "force"]:
             clear_google_cooldown(cooldown_path)
             print("  -> Cooldown cleared! Attempting Google Translate.")
@@ -815,14 +865,15 @@ def main():
         if engine_choice == "2":
             use_mymemory = True
         elif engine_choice == "3":
-            deepl_key = input("Enter your DeepL API Key: ").strip()
+            deepl_key = prompt_deepl_key()
 
+    default_delay = 1.0 if deepl_key else 5.0
     print("\nBatch Pacing: A delay between batches keeps traffic under rate limits.")
-    delay_input = input("Enter delay in seconds between batches [default: 5.0, or 15.0 for extra safety]: ").strip()
+    delay_input = input(f"Enter delay in seconds between batches [default: {default_delay:.1f}]: ").strip()
     try:
-        batch_delay = float(delay_input) if delay_input else 5.0
+        batch_delay = float(delay_input) if delay_input else default_delay
     except ValueError:
-        batch_delay = 5.0
+        batch_delay = default_delay
 
     batch_size = 50
     max_batch_chars = 4000  # Strict ceiling safely below the 5,000-character web limit

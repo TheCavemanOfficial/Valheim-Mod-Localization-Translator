@@ -12,3 +12,8 @@ __pycache__/
 .idea/
 Thumbs.db
 Desktop.ini
+
+# API keys & private secrets
+.deepl_key
+*.key
+.env
