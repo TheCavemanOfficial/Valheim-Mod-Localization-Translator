@@ -955,6 +955,61 @@ def main():
     current_batch_chars = 0
     trans_start_time = time.time()
 
+    def handle_rate_limit():
+        nonlocal google_throttled
+        save_cache(cache_path, cache)
+        write_output_to_disk()
+
+        rem_sec = get_google_cooldown_remaining(cooldown_path)
+        if rem_sec <= 0:
+            rem_sec = 3600  # Default 60 min if unset
+            set_google_cooldown(cooldown_path, duration_sec=rem_sec)
+        cooldown_mins = int(rem_sec // 60) + 1
+
+        print("\n\n" + "=" * 78)
+        print("[Rate Limit Alert] All free translation services are temporarily throttled on your IP.")
+        print(f"Progress safely saved to disk! ({translated_so_far:,} / {changed_count:,} strings completed)")
+        print("=" * 78)
+        print("Options:")
+        print(f"  [1] Auto-Wait: Pause and auto-resume in {cooldown_mins}m when cooldown expires (Default)")
+        print("  [2] Save & Exit: Close now safely (pick up anytime later by running again)")
+        print("  [3] Hotspot/VPN: Switched to phone mobile hotspot / VPN? Press Enter to retry immediately.")
+
+        choice = input("\nSelect option [default: 1]: ").strip().lower()
+        if choice in ["2", "exit", "quit", "q", "n", "no"]:
+            print("\nProgress saved. You can re-run the tool anytime to finish the remaining strings!")
+            return False
+
+        if choice in ["3", "retry", "vpn", "hotspot"]:
+            clear_google_cooldown(cooldown_path)
+            google_throttled = False
+            print("\n  -> Resetting IP cooldown and retrying immediately...\n")
+            return True
+
+        # Auto-Wait countdown
+        print(f"\nAuto-Wait engaged. System will sleep and auto-resume in {cooldown_mins} minutes.")
+        print("You can leave this window open, or press Ctrl+C to save and exit at any time.\n")
+
+        start_wait = time.time()
+        while True:
+            cur_rem = max(0, rem_sec - (time.time() - start_wait))
+            if cur_rem <= 0:
+                break
+            m = int(cur_rem // 60)
+            s = int(cur_rem % 60)
+            bar_len = 25
+            prog = 1.0 - (cur_rem / rem_sec) if rem_sec > 0 else 1.0
+            filled = int(bar_len * prog)
+            bar = "=" * filled + "-" * (bar_len - filled)
+            sys.stdout.write(f"\r  Cooling down IP... Resuming in {m:02d}m {s:02d}s [{bar}] (Ctrl+C to exit) ")
+            sys.stdout.flush()
+            time.sleep(1)
+
+        print("\n\n  -> Cooldown period expired! Resetting engines and resuming translation...\n")
+        clear_google_cooldown(cooldown_path)
+        google_throttled = False
+        return True
+
     try:
         for item in plan:
             if item[0] != "translate":
@@ -969,17 +1024,11 @@ def main():
             if buffer_masked and (len(buffer_masked) >= batch_size or (current_batch_chars + str_len > max_batch_chars)):
                 flushed_count = len(buffer_masked)
                 success = flush_batch()
-                if not success:
-                    print("\n\n" + "=" * 78)
-                    print("[Rate Limit Alert] All free translation services are temporarily throttled on your IP.")
-                    print(f"Your translated progress ({len(cache):,} strings) has been safely saved to disk!")
-                    print("\nTo finish the remaining strings without waiting:")
-                    print("  1. Connect to a VPN or phone hotspot (new IP immediately resets free quotas), OR")
-                    print("  2. Use DeepL Free API (Option 3 at startup - 500k chars/mo with 0 rate limits).")
-                    print("=" * 78)
-                    save_cache(cache_path, cache)
-                    write_output_to_disk()
-                    return
+                while not success:
+                    should_retry = handle_rate_limit()
+                    if not should_retry:
+                        return
+                    success = flush_batch()
 
                 translated_so_far += flushed_count
                 pct = min(100.0, translated_so_far / changed_count * 100)
@@ -1013,13 +1062,21 @@ def main():
         if buffer_masked:
             flushed_count = len(buffer_masked)
             success = flush_batch()
+            while not success:
+                should_retry = handle_rate_limit()
+                if not should_retry:
+                    return
+                success = flush_batch()
             if success:
                 translated_so_far += flushed_count
                 save_cache(cache_path, cache)
                 write_output_to_disk()
 
-        total_elapsed_str = format_eta(time.time() - trans_start_time)
-        print(f"\rProgress: {changed_count:,}/{changed_count:,} changed strings (100.0%) - Completed in {total_elapsed_str}!\n")
+        if translated_so_far >= changed_count:
+            total_elapsed_str = format_eta(time.time() - trans_start_time)
+            print(f"\rProgress: {changed_count:,}/{changed_count:,} changed strings (100.0%) - Completed in {total_elapsed_str}!\n")
+        else:
+            print(f"\n[Paused] {translated_so_far:,}/{changed_count:,} strings translated so far.\n")
 
     except KeyboardInterrupt:
         print("\n\n[Paused] Saving current progress and cache to disk...")
