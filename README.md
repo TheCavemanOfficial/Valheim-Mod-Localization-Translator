@@ -74,16 +74,16 @@ From the zip file you downloaded, copy these two files directly into that profil
 * Once it reaches 100%, it automatically installs the finished translation into your mod's folder and your game config folder!
 
 > ### ☕ What if I see a "Rate Limit Cooldown" message?
-> If you are translating a huge mod with thousands of lines, Google may occasionally temporarily throttle your IP address (HTTP 429). 
+> If you are translating a huge mod with thousands of lines, free web services like Google may occasionally temporarily throttle your IP address (HTTP 429). 
 > 
 > **How the Tool Handles This Automatically**: 
-> * **Automatic 60-Minute Cooldown**: The moment Google signals a rate limit, the tool sets a 60-minute cooldown timer saved to disk. It immediately switches to **MyMemory** and **will not hammer Google again for 60 minutes**, even if you close and restart the application!
-> * **Auto-Selection on Next Launch**: If you launch the tool while the 60-minute cooldown is active, it automatically detects the remaining time and routes your translation through MyMemory without bothering Google.
+> * **Intelligent Auto-Wait & Resume**: If all free engines hit a temporary rate limit, the tool saves your progress and offers an **Auto-Wait mode with a live countdown bar**. Leave the window open, and the tool will automatically sleep, wake up when the cooldown expires, and resume translating seamlessly without you lifting a finger!
+> * **Automatic 60-Minute Cooldown**: The moment Google signals a rate limit, the tool records a 60-minute cooldown timestamp. It automatically switches to **MyMemory** backup so you don't get stuck.
 > 
 > **Your Translation Options**:
-> 1. **Built-in MyMemory Engine**: Translates smoothly without Google. Can be picked directly as Option `2` at startup.
-> 2. **DeepL Free API (Option 3)**: Register for a free DeepL API key at [deepl.com/pro-api](https://www.deepl.com/pro-api) (gives you 500,000 characters free every month with 0 rate limits). Select Option `3` at startup.
-> 3. **The 5-Second Network Reset Trick (VPN / Hotspot)**: If you connect to a VPN or your phone's mobile hotspot, you get a fresh IP immediately. You can select **Reset Cooldown & Try Google** from the startup menu to test the new IP right away.
+> 1. **Built-in DeepL API (Option 2/3)**: Register for a free DeepL API key at [deepl.com/pro-api](https://www.deepl.com/pro-api) (gives you 500,000 characters free every month with 0 rate limits). The tool safely remembers your key locally in a private file (`.deepl_key`) that is ignored by Git, so you never have to re-enter it!
+> 2. **Built-in MyMemory Engine**: Translates smoothly as an automated backup without Google.
+> 3. **The 5-Second Network Reset Trick (VPN / Hotspot)**: Rate limits on free services are tied purely to your IP. Turning on your phone's mobile hotspot or switching a VPN location gives you a fresh IP immediately. You can select **Reset Cooldown & Try Google** from the startup menu to test the new IP right away.
 > 4. **Close It and Come Back Later**: You can safely close the window at any time (Ctrl+C). Every single translated batch is saved to disk immediately so you never lose progress.
 
 ---
@@ -117,16 +117,15 @@ When your mod gets an update with new skills or items:
 
 ## 🧩 Translating Incomplete or Existing Files
 
-If a mod already has a partial translation file, or you are updating an existing one, the tool automatically detects it and gives you three smart options:
+If a mod already has a partial translation file, or you interrupted a translation earlier, the tool automatically inspects the file, shows an exact breakdown of completed vs remaining lines, and gives you three smart options:
 
-1. **Option 1: Keep existing translations & translate ONLY missing/empty lines (Default)**
-   * Every line that is already translated is reused instantly with **zero wait time and zero API calls**.
-   * Only missing keys or empty lines are translated, completing the file.
-2. **Option 2: Keep existing translations, but ALSO translate lines left in English**
-   * Translators often start by copying the English file and only translate partway through.
-   * This option keeps all real translations, but automatically detects lines that were left in English and translates them for you!
+1. **Option 1: Keep translated lines, translate all remaining/English lines (Default)**
+   * Every line that has already been translated is reused instantly with **zero wait time and zero API calls**.
+   * Only untranslated or missing keys are queued for translation, completing the file seamlessly.
+2. **Option 2: Keep existing translations as-is (translate ONLY completely missing lines)**
+   * Leaves existing lines exactly as they are on disk and only fills in keys that don't exist in the file at all.
 3. **Option 3: Re-translate everything from scratch**
-   * Ignores the old file and performs a fresh, clean translation from the official English master.
+   * Ignores existing translations and performs a fresh, clean translation from the official English master.
 
 ---
 
