@@ -102,7 +102,7 @@ def unmask_tokens(translated_text, tokens):
 def translate_batch_mymemory(text_list, target_lang, source_lang="en"):
     """Backup translation engine using MyMemory API when Google is IP-throttled"""
     if not text_list:
-        return []
+        return [], True
     results = []
     chunk_size = 5
     delimiter = "\n<<<DIV>>>\n"
@@ -115,23 +115,25 @@ def translate_batch_mymemory(text_list, target_lang, source_lang="en"):
             req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"})
             with urllib.request.urlopen(req, timeout=10) as r:
                 data = json.loads(r.read().decode("utf-8"))
+                if data.get("responseStatus") != 200:
+                    return [], False
                 raw = html.unescape(data.get("responseData", {}).get("translatedText", ""))
+                if not raw or "MYMEMORY WARNING" in raw.upper():
+                    return [], False
                 parts = re.split(r'\s*<<<DIV>>>\s*', raw)
                 while len(parts) < len(chunk):
                     parts.append(chunk[len(parts)])
                 results.extend(parts[:len(chunk)])
         except Exception:
-            results.extend(chunk)
+            return [], False
         time.sleep(0.3)
 
-    while len(results) < len(text_list):
-        results.append(text_list[len(results)])
-    return results[:len(text_list)]
+    return results[:len(text_list)], True
 
 def translate_batch_deepl(text_list, target_lang, api_key, source_lang="en"):
     """Official DeepL Free API translator (500k chars free/month, zero rate limits)"""
     if not text_list:
-        return []
+        return [], True
     url = "https://api-free.deepl.com/v2/translate"
     lang_map = {
         "en": "EN",
@@ -177,10 +179,10 @@ def translate_batch_deepl(text_list, target_lang, api_key, source_lang="en"):
             translated = [item["text"] for item in data.get("translations", [])]
             while len(translated) < len(text_list):
                 translated.append(text_list[len(translated)])
-            return translated[:len(text_list)]
+            return translated[:len(text_list)], True
     except Exception as e:
-        print(f"\n[DeepL Error] {e}. Falling back to MyMemory...")
-        return translate_batch_mymemory(text_list, target_lang, source_lang)
+        print(f"\n[DeepL Error] {e}.")
+        return [], False
 
 COOLDOWN_FILENAME = ".google_cooldown.json"
 COOLDOWN_DURATION_SEC = 3600  # 60 minutes cooldown
@@ -233,13 +235,13 @@ def clear_google_cooldown(cooldown_path):
 
 def translate_batch_google(text_list, target_lang, source_lang="en", cooldown_path=None, max_retries=2):
     if not text_list:
-        return [], False
+        return [], True
 
     # Check persistent cooldown first - never query Google if cooldown is active
     if cooldown_path:
         remaining = get_google_cooldown_remaining(cooldown_path)
         if remaining > 0:
-            return translate_batch_mymemory(text_list, target_lang, source_lang), True
+            return translate_batch_mymemory(text_list, target_lang, source_lang)
 
     delimiter = "\n<<<DIV>>>\n"
     combined = delimiter.join(text_list)
@@ -268,22 +270,22 @@ def translate_batch_google(text_list, target_lang, source_lang="en", cooldown_pa
                 
                 while len(parts) < len(text_list):
                     parts.append(text_list[len(parts)])
-                return parts[:len(text_list)], False
+                return parts[:len(text_list)], True
         except urllib.error.HTTPError as e:
             if e.code == 429:
                 if cooldown_path:
                     set_google_cooldown(cooldown_path, COOLDOWN_DURATION_SEC)
-                print(f"\n[Cooldown Activated] Google IP rate-limit hit (429). Setting 60-minute persistent cooldown across app runs and switching permanently to MyMemory...", flush=True)
-                return translate_batch_mymemory(text_list, target_lang, source_lang), True
+                print(f"\n[Notice] Google IP rate-limit hit (429). Switching to MyMemory...", flush=True)
+                return translate_batch_mymemory(text_list, target_lang, source_lang)
             if attempt == max_retries - 1:
-                return translate_batch_mymemory(text_list, target_lang, source_lang), True
+                return translate_batch_mymemory(text_list, target_lang, source_lang)
             time.sleep(1.0)
         except Exception:
             if attempt == max_retries - 1:
-                return translate_batch_mymemory(text_list, target_lang, source_lang), True
+                return translate_batch_mymemory(text_list, target_lang, source_lang)
             time.sleep(1.0)
             
-    return translate_batch_mymemory(text_list, target_lang, source_lang), True
+    return translate_batch_mymemory(text_list, target_lang, source_lang)
 
 def detect_bepinex_root(start_dir):
     """Searches current folder and upwards for BepInEx"""
@@ -844,16 +846,19 @@ def main():
     def flush_batch():
         nonlocal buffer_keys, buffer_masked, buffer_tokens, google_throttled
         if not buffer_masked:
-            return
+            return True
 
         if deepl_key:
-            translations = translate_batch_deepl(buffer_masked, target_lang=target_code, api_key=deepl_key, source_lang=source_code)
+            translations, success = translate_batch_deepl(buffer_masked, target_lang=target_code, api_key=deepl_key, source_lang=source_code)
         elif google_throttled:
-            translations = translate_batch_mymemory(buffer_masked, target_lang=target_code, source_lang=source_code)
+            translations, success = translate_batch_mymemory(buffer_masked, target_lang=target_code, source_lang=source_code)
         else:
-            translations, hit_throttle = translate_batch_google(buffer_masked, target_lang=target_code, source_lang=source_code, cooldown_path=cooldown_path)
-            if hit_throttle:
+            translations, success = translate_batch_google(buffer_masked, target_lang=target_code, source_lang=source_code, cooldown_path=cooldown_path)
+            if not success:
                 google_throttled = True
+
+        if not success or not translations or len(translations) < len(buffer_keys):
+            return False
 
         for k, res_text, tokens in zip(buffer_keys, translations, buffer_tokens):
             unmasked = unmask_tokens(res_text, tokens)
@@ -863,6 +868,7 @@ def main():
         buffer_keys = []
         buffer_masked = []
         buffer_tokens = []
+        return True
 
     plan_lookup = {p[1]: p[2] for p in plan if p[1]}
     translated_so_far = 0
@@ -882,7 +888,19 @@ def main():
             # If adding this string would exceed character ceiling or item count, flush existing batch first
             if buffer_masked and (len(buffer_masked) >= batch_size or (current_batch_chars + str_len > max_batch_chars)):
                 flushed_count = len(buffer_masked)
-                flush_batch()
+                success = flush_batch()
+                if not success:
+                    print("\n\n" + "=" * 78)
+                    print("[Rate Limit Alert] All free translation services are temporarily throttled on your IP.")
+                    print(f"Your translated progress ({len(cache):,} strings) has been safely saved to disk!")
+                    print("\nTo finish the remaining strings without waiting:")
+                    print("  1. Connect to a VPN or phone hotspot (new IP immediately resets free quotas), OR")
+                    print("  2. Use DeepL Free API (Option 3 at startup - 500k chars/mo with 0 rate limits).")
+                    print("=" * 78)
+                    save_cache(cache_path, cache)
+                    write_output_to_disk()
+                    return
+
                 translated_so_far += flushed_count
                 pct = min(100.0, translated_so_far / changed_count * 100)
 
@@ -914,10 +932,11 @@ def main():
 
         if buffer_masked:
             flushed_count = len(buffer_masked)
-            flush_batch()
-            translated_so_far += flushed_count
-            save_cache(cache_path, cache)
-            write_output_to_disk()
+            success = flush_batch()
+            if success:
+                translated_so_far += flushed_count
+                save_cache(cache_path, cache)
+                write_output_to_disk()
 
         total_elapsed_str = format_eta(time.time() - trans_start_time)
         print(f"\rProgress: {changed_count:,}/{changed_count:,} changed strings (100.0%) - Completed in {total_elapsed_str}!\n")
