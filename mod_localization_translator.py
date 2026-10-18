@@ -829,12 +829,12 @@ def main():
     print("\nTranslation Engine:")
     if google_on_cooldown:
         print(f"  [1] MyMemory Backup (Auto-Selected: Google is cooling down for another {cooldown_mins}m)")
-        print(f"  [2] DeepL API (Requires Free DeepL Key - 500k chars/mo, Best Quality & 0 rate limits)")
+        print(f"  [2] DeepL API (Requires Free DeepL Key - 1M free chars, Best Quality & 0 rate limits)")
         print(f"  [3] Reset Cooldown & Try Google (Only if you changed network/VPN)")
     else:
         print("  [1] Google Translate (Default - Fast & Free, auto-switches to MyMemory if throttled)")
         print("  [2] MyMemory (Free - Instant bypass if Google is rate-limiting your IP)")
-        print("  [3] DeepL API (Requires Free DeepL Key - 500k chars/mo, Best Quality & 0 rate limits)")
+        print("  [3] DeepL API (Requires Free DeepL Key - 1M free chars, Best Quality & 0 rate limits)")
 
     engine_choice = input("Select engine [default: 1]: ").strip().lower()
     deepl_key = None

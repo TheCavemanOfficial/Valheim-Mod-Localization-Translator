@@ -97,7 +97,7 @@ Select mode [default: 1]: [Press Enter]
 ```text
 Translation Engine:
   [1] Google Translate (Default - Fast & Free, auto-switches to MyMemory if throttled)
-  [2] DeepL API (Requires Free DeepL Key - 500k chars/mo, Best Quality & 0 rate limits)
+  [2] DeepL API (Requires Free DeepL Key - 1M free chars, Best Quality & 0 rate limits)
   [3] MyMemory (Free - Instant bypass if Google is rate-limiting your IP)
 Select engine [default: 1]: 
 ```
@@ -115,13 +115,13 @@ Enter delay in seconds between batches [default: 1.0]: [Press Enter]
 
 For large mods like **Path of Valheiman** (which has over 26,000 lines), **DeepL** is by far the best engine:
 * **Zero Rate Limits**: Never throttles or pauses during long translation runs.
-* **500,000 Characters Free Every Month**: Translates over 25,000 strings completely free.
+* **1 Million Free Characters**: DeepL developer accounts include a one-time free credit of **1,000,000 characters** (~50,000 lines—more than double the entire Path of Valheiman mod!).
 * **10x Faster**: Uses a fast 1.0-second delay between batches.
 * **Superior Quality**: Produces natural gaming and fantasy translations.
 
 ### How to Get a Free DeepL API Key (Takes 2 Minutes)
 1. Visit [deepl.com/pro-api](https://www.deepl.com/pro-api).
-2. Select the **DeepL API Free** tier and sign up (it is 100% free with no monthly charges).
+2. Click **Try for free** under Developer / Free tier (includes 1,000,000 characters free credit).
 3. In your DeepL account dashboard, go to:
    **Account** → **Account Settings** → Scroll down to **Authentication Key for DeepL API**.
 4. Copy your key (it will look like `xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx:fx`).
