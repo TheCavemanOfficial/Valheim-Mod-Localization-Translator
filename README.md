@@ -98,22 +98,26 @@ Select mode [default: 1]: [Press Enter]
 Translation Engine:
   [1] Google Translate (Default - Fast & Free, auto-switches to MyMemory if throttled)
   [2] DeepL API (Requires Free DeepL Key - 1M free chars, Best Quality & 0 rate limits)
-  [3] MyMemory (Free - Instant bypass if Google is rate-limiting your IP)
+  [3] Microsoft Azure Translator (Requires Free Azure Key - 2M chars/mo, Fast & 0 rate limits)
+  [4] MyMemory (Free - Instant bypass if Google is rate-limiting your IP)
 Select engine [default: 1]: 
 ```
+
+> ⚠️ **Important Note About Google & MyMemory**:
+> If you are translating a huge mod (such as Path of Valheiman with 26,000+ lines), **Google and MyMemory WILL temporarily throttle your IP address** during the first run. This is normal because public scrapers have strict hourly limits. When this occurs, the tool automatically engages **Auto-Wait** with a live countdown or lets you switch IPs. For a completely uninterrupted run with zero stops, use a free **DeepL** or **Microsoft Azure** key!
 
 #### 5. Confirm Batch Pacing
 ```text
 Batch Pacing: A delay between batches keeps traffic under rate limits.
 Enter delay in seconds between batches [default: 1.0]: [Press Enter]
 ```
-* Default is `1.0s` for DeepL or `5.0s` for Google/MyMemory. Press **Enter** to start translating!
+* Default is `1.0s` for DeepL/Azure or `5.0s` for Google/MyMemory. Press **Enter** to start translating!
 
 ---
 
-## ⚡ The DeepL Engine: Best Quality & Zero Rate Limits
+## ⚡ The DeepL Engine: 1M Free Characters & Highest Quality
 
-For large mods like **Path of Valheiman** (which has over 26,000 lines), **DeepL** is by far the best engine:
+For large mods like **Path of Valheiman**, **DeepL** is an outstanding option:
 * **Zero Rate Limits**: Never throttles or pauses during long translation runs.
 * **1 Million Free Characters**: DeepL developer accounts include a one-time free credit of **1,000,000 characters** (~50,000 lines—more than double the entire Path of Valheiman mod!).
 * **10x Faster**: Uses a fast 1.0-second delay between batches.
@@ -126,23 +130,55 @@ For large mods like **Path of Valheiman** (which has over 26,000 lines), **DeepL
    **Account** → **Account Settings** → Scroll down to **Authentication Key for DeepL API**.
 4. Copy your key (it will look like `xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx:fx`).
 
-### How the Tool Remembers Your Key Safely
+### How the Tool Remembers Your DeepL Key Safely
 When you choose DeepL in the tool:
 1. Paste your key into the console.
-2. The tool will ask:
+2. Press **Enter** (`y`) when asked:
    ```text
    Save key locally on this PC so you don't have to enter it again? [default: y]:
    ```
-3. Press **Enter** (`y`). The tool saves your key to a private file:
-   `BepInEx/config/.deepl_key`
-4. **On all future runs**, the tool will automatically detect your key:
+3. The tool saves your key to `BepInEx/config/.deepl_key`.
+4. **On all future runs**, it automatically detects your key:
    ```text
    Found saved DeepL key (d5bf...2:fx). Use it? [default: y]:
    ```
    Just press **Enter** and you're good to go!
 
+---
+
+## 🔷 Microsoft Azure Translator: 2 Million Characters Free Every Month
+
+Microsoft provides an official Translator API on Azure Cognitive Services with a permanent **Free F0 Tier** that gives you **2,000,000 characters every month**:
+* **Recurring 2 Million Free Characters/Month**: Automatically refreshes every month forever.
+* **Zero Rate Limits**: Fast and reliable enterprise translation.
+* **10x Faster**: Uses a 1.0-second delay between batches.
+
+### 💳 Note on Azure Sign-Up (Credit Card Verification)
+> **Important**: Microsoft requires an Azure account to generate a key. During account creation, Microsoft requires a credit card to verify your identity and prevent bot abuse.
+> * **You will NOT be charged**: The **F0 Free Tier** has a strict spending limit of $0. You are never billed unless you manually choose to convert to a paid pay-as-you-go subscription.
+
+### How to Get a Free Azure Translator Key (Step-by-Step)
+1. Go to the [Azure Portal](https://portal.azure.com) and log in with your Microsoft account.
+2. In the search bar at the top, type **Translator** and select **Translator** (under AI + Machine Learning services).
+3. Click **+ Create**:
+   * **Subscription**: Select your subscription (or Free Trial).
+   * **Resource Group**: Click *Create new* (e.g. `valheim-translator`).
+   * **Region**: Select your closest region (e.g. `East US`, `West Europe`, or `Global`).
+   * **Name**: Any unique name (e.g. `my-valheim-translator`).
+   * **Pricing Tier**: Select **Free F0 (2M Characters translated per month)**.
+4. Click **Review + Create**, then click **Create**.
+5. Once deployment completes, click **Go to resource** → On the left menu, click **Keys and Endpoint**.
+6. Copy **Key 1** and note your **Location/Region** (e.g. `eastus` or `global`).
+
+### How the Tool Remembers Your Azure Key
+When you select Microsoft Azure in the tool:
+1. Paste your **Key** and type your **Region** (or press Enter for `global`).
+2. Press **Enter** (`y`) when asked to save locally.
+3. The tool saves your credentials securely in `BepInEx/config/.azure_key`.
+4. **On future runs**, it automatically detects your key and region so you never have to re-type them!
+
 > 🔒 **Privacy Guarantee**: 
-> `.deepl_key`, `*.key`, and `.env` are protected by `.gitignore`. Your key is stored solely on your local PC and is **never** shared, uploaded, or committed to GitHub.
+> `.deepl_key`, `.azure_key`, `*.key`, and `.env` are protected by `.gitignore`. Your keys are stored solely on your local PC and are **never** shared, uploaded, or committed to GitHub.
 
 ---
 
@@ -183,8 +219,8 @@ Rate limits on free web services are tied strictly to your **internet IP address
 
 ---
 
-### Workaround 3: DeepL Free Key
-Switch to DeepL (Option `2`/`3` in the engine menu) to bypass Google/MyMemory IP limits entirely.
+### Workaround 3: DeepL or Microsoft Azure Free Keys
+Switch to DeepL (Option `2`) or Microsoft Azure (Option `3`) in the engine menu to bypass Google/MyMemory IP limits entirely.
 
 ---
 

@@ -229,6 +229,85 @@ def translate_batch_deepl(text_list, target_lang, api_key, source_lang="en"):
         print(f"\n[DeepL Error] {e}.")
         return [], False
 
+AZURE_KEY_FILENAME = ".azure_key"
+
+def get_saved_azure_credentials(bepinex_dir=None):
+    """Finds Azure Translator key & region from env or local file (excluded from git)"""
+    env_key = os.environ.get("AZURE_TRANSLATOR_KEY", "").strip()
+    env_region = os.environ.get("AZURE_TRANSLATOR_REGION", "global").strip()
+    if env_key:
+        return env_key, env_region
+    candidates = []
+    if bepinex_dir:
+        candidates.append(os.path.join(bepinex_dir, "config", AZURE_KEY_FILENAME))
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    candidates.append(os.path.join(script_dir, AZURE_KEY_FILENAME))
+    for p in candidates:
+        if os.path.exists(p):
+            try:
+                with open(p, "r", encoding="utf-8") as f:
+                    content = f.read().strip()
+                    if content.startswith("{"):
+                        data = json.loads(content)
+                        return data.get("key", "").strip(), data.get("region", "global").strip()
+                    lines = [line.strip() for line in content.splitlines() if line.strip()]
+                    if lines:
+                        k = lines[0]
+                        reg = lines[1] if len(lines) > 1 else "global"
+                        return k, reg
+            except Exception:
+                pass
+    return None, None
+
+def save_azure_credentials(key, region="global", bepinex_dir=None):
+    """Saves Azure Translator credentials locally to BepInEx/config/.azure_key (excluded from git)"""
+    if not key or not key.strip():
+        return
+    clean_key = key.strip()
+    clean_region = region.strip() if region else "global"
+    save_dir = os.path.join(bepinex_dir, "config") if bepinex_dir and os.path.isdir(os.path.join(bepinex_dir, "config")) else os.path.dirname(os.path.abspath(__file__))
+    save_path = os.path.join(save_dir, AZURE_KEY_FILENAME)
+    try:
+        os.makedirs(save_dir, exist_ok=True)
+        with open(save_path, "w", encoding="utf-8") as f:
+            json.dump({"key": clean_key, "region": clean_region}, f, indent=2)
+        print(f"  -> Azure credentials saved securely to: {save_path} (automatically ignored by git)")
+    except Exception as e:
+        print(f"  -> Note: could not save Azure credentials locally ({e})")
+
+def translate_batch_azure(text_list, target_lang, api_key, region="global", source_lang="en"):
+    """Official Microsoft Azure Translator API (2M chars/month free tier, zero rate limits)"""
+    if not text_list:
+        return [], True
+    clean_key = api_key.strip()
+    clean_region = region.strip() if region else "global"
+    t_code = target_lang.lower()
+    s_code = source_lang.lower()
+    iso_map = {"pt-br": "pt", "pt-pt": "pt-pt", "zh": "zh-Hans"}
+    t_code = iso_map.get(t_code, t_code)
+    s_code = iso_map.get(s_code, s_code)
+
+    url = f"https://api.cognitive.microsofttranslator.com/translate?api-version=3.0&from={s_code}&to={t_code}"
+    payload = json.dumps([{"Text": t} for t in text_list]).encode("utf-8")
+    headers = {
+        "Ocp-Apim-Subscription-Key": clean_key,
+        "Content-Type": "application/json; charset=UTF-8"
+    }
+    if clean_region:
+        headers["Ocp-Apim-Subscription-Region"] = clean_region
+
+    req = urllib.request.Request(url, data=payload, headers=headers)
+    try:
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+            translated = [item["translations"][0]["text"] for item in data if "translations" in item and item["translations"]]
+            while len(translated) < len(text_list):
+                translated.append(text_list[len(translated)])
+            return translated[:len(text_list)], True
+    except Exception as e:
+        print(f"\n[Azure Translator Error] {e}")
+        return [], False
+
 COOLDOWN_FILENAME = ".google_cooldown.json"
 COOLDOWN_DURATION_SEC = 3600  # 60 minutes cooldown
 
@@ -830,14 +909,18 @@ def main():
     if google_on_cooldown:
         print(f"  [1] MyMemory Backup (Auto-Selected: Google is cooling down for another {cooldown_mins}m)")
         print(f"  [2] DeepL API (Requires Free DeepL Key - 1M free chars, Best Quality & 0 rate limits)")
-        print(f"  [3] Reset Cooldown & Try Google (Only if you changed network/VPN)")
+        print(f"  [3] Microsoft Azure Translator (Requires Free Azure Key - 2M chars/mo, Fast & 0 rate limits)")
+        print(f"  [4] Reset Cooldown & Try Google (Only if you changed network/VPN)")
     else:
         print("  [1] Google Translate (Default - Fast & Free, auto-switches to MyMemory if throttled)")
-        print("  [2] MyMemory (Free - Instant bypass if Google is rate-limiting your IP)")
-        print("  [3] DeepL API (Requires Free DeepL Key - 1M free chars, Best Quality & 0 rate limits)")
+        print("  [2] DeepL API (Requires Free DeepL Key - 1M free chars, Best Quality & 0 rate limits)")
+        print("  [3] Microsoft Azure Translator (Requires Free Azure Key - 2M chars/mo, Fast & 0 rate limits)")
+        print("  [4] MyMemory (Free - Instant bypass if Google is rate-limiting your IP)")
 
     engine_choice = input("Select engine [default: 1]: ").strip().lower()
     deepl_key = None
+    azure_key = None
+    azure_region = "global"
     use_mymemory = False
 
     def prompt_deepl_key():
@@ -854,10 +937,29 @@ def main():
                 save_deepl_key(k, bepinex_root)
         return k
 
+    def prompt_azure_credentials():
+        saved_k, saved_reg = get_saved_azure_credentials(bepinex_root)
+        if saved_k:
+            masked = saved_k[:4] + "..." + saved_k[-4:] if len(saved_k) >= 8 else "***"
+            use_saved = input(f"Found saved Azure key ({masked}, region: {saved_reg}). Use it? [default: y]: ").strip().lower()
+            if use_saved in ("", "y", "yes"):
+                return saved_k, saved_reg
+        k = input("Enter your Microsoft Azure Translator Key: ").strip()
+        reg = input("Enter your Azure Resource Region [default: global]: ").strip()
+        if not reg:
+            reg = "global"
+        if k:
+            save_ans = input("Save Azure key locally on this PC so you don't have to enter it again? [default: y]: ").strip().lower()
+            if save_ans in ("", "y", "yes"):
+                save_azure_credentials(k, reg, bepinex_root)
+        return k, reg
+
     if google_on_cooldown:
         if engine_choice == "2":
             deepl_key = prompt_deepl_key()
-        elif engine_choice in ["3", "reset", "force"]:
+        elif engine_choice == "3":
+            azure_key, azure_region = prompt_azure_credentials()
+        elif engine_choice in ["4", "reset", "force"]:
             clear_google_cooldown(cooldown_path)
             print("  -> Cooldown cleared! Attempting Google Translate.")
             use_mymemory = False
@@ -866,11 +968,13 @@ def main():
             use_mymemory = True
     else:
         if engine_choice == "2":
-            use_mymemory = True
-        elif engine_choice == "3":
             deepl_key = prompt_deepl_key()
+        elif engine_choice == "3":
+            azure_key, azure_region = prompt_azure_credentials()
+        elif engine_choice == "4":
+            use_mymemory = True
 
-    default_delay = 1.0 if deepl_key else 5.0
+    default_delay = 1.0 if (deepl_key or azure_key) else 5.0
     print("\nBatch Pacing: A delay between batches keeps traffic under rate limits.")
     delay_input = input(f"Enter delay in seconds between batches [default: {default_delay:.1f}]: ").strip()
     try:
@@ -887,6 +991,8 @@ def main():
 
     if deepl_key:
         engine_name = "DeepL API"
+    elif azure_key:
+        engine_name = f"Microsoft Azure Translator (Region: {azure_region})"
     elif google_throttled:
         engine_name = f"MyMemory API (Google on 60m cooldown, {cooldown_mins}m left)" if google_on_cooldown else "MyMemory API"
     else:
@@ -908,7 +1014,7 @@ def main():
     # Conservative higher-end estimate calculation
     avg_strings_per_batch = 42
     est_total_batches = max(1, (changed_count + avg_strings_per_batch - 1) // avg_strings_per_batch)
-    if deepl_key:
+    if deepl_key or azure_key:
         overhead = 2.0
     elif google_throttled or use_mymemory:
         overhead = 4.5
@@ -930,6 +1036,8 @@ def main():
 
         if deepl_key:
             translations, success = translate_batch_deepl(buffer_masked, target_lang=target_code, api_key=deepl_key, source_lang=source_code)
+        elif azure_key:
+            translations, success = translate_batch_azure(buffer_masked, target_lang=target_code, api_key=azure_key, region=azure_region, source_lang=source_code)
         elif google_throttled:
             translations, success = translate_batch_mymemory(buffer_masked, target_lang=target_code, source_lang=source_code)
         else:
