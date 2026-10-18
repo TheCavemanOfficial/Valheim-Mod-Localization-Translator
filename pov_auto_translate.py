@@ -837,6 +837,9 @@ def main():
         print("  [3] DeepL API (Requires Free DeepL Key - 500k chars/mo, Best Quality & 0 rate limits)")
 
     engine_choice = input("Select engine [default: 1]: ").strip().lower()
+    deepl_key = None
+    use_mymemory = False
+
     def prompt_deepl_key():
         saved = get_saved_deepl_key(bepinex_root)
         if saved:
