@@ -1,8 +1,8 @@
 # 🌲 Valheim Mod Auto-Translator
 
-Hey there! If you enjoy playing Valheim with mods like **Path of Valheiman**, **Adventure Backpacks**, or other community mods, but wish they were translated into your native language (like German, Russian, French, Spanish, and more)—this little tool is for you!
+Hey there! If you enjoy playing Valheim with mods like **Path of Valheiman**, **Adventure Backpacks**, or other community mods, but wish they were translated into your native language (like German, Russian, French, Spanish, and more)—this tool is for you!
 
-It automatically translates your mods while making sure game code, colors, and formatting tags (like `{0}`, `<color=...>`, and `<b>`) stay completely safe and intact.
+It automatically translates your mods while ensuring game code, colors, and formatting tags (like `{0}`, `{key.use}`, `<color=...>`, and `<b>`) stay completely safe and intact.
 
 ---
 
@@ -10,122 +10,215 @@ It automatically translates your mods while making sure game code, colors, and f
 
 You only need **one thing** installed on your computer: **Python**.
 
-1. Download **Python 3.12+** from [python.org](https://www.python.org/downloads/) (or get it from the Windows Microsoft Store).
-2. ⚠️ **The Only Important Step During Installation**:
-   When the installer opens, **check the little box at the bottom** that says:
+1. Download **Python 3.10+** from [python.org](https://www.python.org/downloads/) (or install it from the Windows Microsoft Store).
+2. ⚠️ **The Only Critical Step During Installation**:
+   When the installer opens, **check the box at the bottom** that says:
    > ☑ **"Add python.exe to PATH"**
-   *(If you skip this box, Windows won't know where Python is when you double-click the file!)*
-3. **No extra setup needed**: You don't have to install any packages, type terminal commands, or set up API keys. It runs straight out of the box.
+   *(If you skip this box, Windows won't recognize Python when you double-click the file!)*
+3. **No extra setup or dependencies**: You don't need `pip`, virtual environments, or third-party packages. It runs 100% portable out of the box using Python's standard library.
 
 ---
 
-## 🚀 Step-by-Step: How to Use It
+## 🚀 Step-by-Step Walkthrough
 
-The easiest way to use this tool is to drop it right into your mod profile folder. Here’s how:
+The easiest way to use this tool is to drop it directly into your mod profile folder. Here is the exact step-by-step:
 
 ### Step 1: Open Your Mod Profile Folder
-* **If you use r2modman or Thunderstore Mod Manager**:
+* **r2modman / Thunderstore Mod Manager**:
   1. Open your mod manager and choose your Valheim profile.
-  2. Click **Settings** on the left menu.
-  3. Click **"Browse profile folder"** (it opens a folder window on your computer).
-* **If you use Gale Mod Manager**:
+  2. Click **Settings** on the left sidebar.
+  3. Click **"Browse profile folder"** (opens your profile directory in File Explorer).
+* **Gale Mod Manager**:
   1. Click your active profile's menu/folder icon and select **Open profile folder**.
-* **If you install mods manually**:
-  1. Go to your main Valheim game folder (where `valheim.exe` and `BepInEx` live).
+* **Manual / Vanilla Installation**:
+  1. Open your main Valheim game directory (where `valheim.exe` and `BepInEx` live).
 
-> 💡 **Quick Check**: Inside this folder, you should see a folder named `BepInEx`. That's how you know you're in the right spot!
+> 💡 **Quick Check**: Inside this folder, you should see a folder named `BepInEx`. That's how you know you're in the right place!
 
 ---
 
-### Step 2: Put the Tool Files in Your Profile
-From the zip file you downloaded, copy these two files directly into that profile folder:
+### Step 2: Add the Tool to Your Profile
+From your downloaded zip archive, copy these two files directly into that profile folder:
 * `mod_localization_translator.py`
 * `run_translation.bat`
 
 ---
 
-### Step 3: Run the Tool
-1. **Double-click** `run_translation.bat`.
-2. A window will open and automatically look through your mods. You'll see a clean, easy-to-read list on your screen, like this:
+### Step 3: Run the Translator
+Double-click **`run_translation.bat`**. The tool will guide you through simple prompts where **pressing Enter selects the recommended default**:
+
+#### 1. Pick Your Mod
+The tool auto-scans your `BepInEx/plugins/` directory and displays all installed mods with localizations:
+```text
+==============================================================================
+                 VALHEIM MOD AUTO-TRANSLATION TOOL
+==============================================================================
+[Profile Context] Detected BepInEx: F:\Gale\valheim\profiles\CaveheimS3\BepInEx
+
+Discovered 3 mod(s) with localization in your profile:
+------------------------------------------------------------------------------
+ [ 1] PathOfValheiman                 | [ 3] LongshipUpgrades               
+ [ 2] AdventureBackpacks              |                                     
+------------------------------------------------------------------------------
+  [ 0] Custom File / Drag & Drop       | [ F] Filter / Search mods by name
+==============================================================================
+Select mod number [default: 1]: 
+```
+* Type the number of your mod and press **Enter** (or press Enter for default `1`).
+* *The tool automatically selects the most comprehensive master dictionary file (e.g. `english.txt` with all 26,000+ lines including all skill tree deeds, perks, and bonuses).*
+
+#### 2. Select Source & Target Language
+```text
+Enter source language code [default: en]: [Press Enter]
+Enter target language code (e.g. de, ru, fr): de
+Output filename [default: german.txt]: [Press Enter]
+```
+
+#### 3. Choose Resumption Mode
+The tool analyzes your existing files and reports the exact translation breakdown:
+```text
+==============================================================================
+                 TRANSLATION STATUS DETECTED
+==============================================================================
+  -> Translated lines (Genuine)       : 2,401
+  -> Lines currently still in English : 23,909
+  -> Completely missing lines         : 0
+==============================================================================
+
+How would you like to proceed?
+  [1] Keep translated lines, translate all 23,909 remaining/English lines (Default)
+  [2] Keep existing translations as-is (translate ONLY 0 completely missing lines)
+  [3] Re-translate everything from scratch (ignore existing files)
+Select mode [default: 1]: [Press Enter]
+```
+* **Option 1 (Default)**: Reuses all completed translations instantly (zero wait time) and queues only the unfinished or English lines.
+
+#### 4. Select Translation Engine
+```text
+Translation Engine:
+  [1] Google Translate (Default - Fast & Free, auto-switches to MyMemory if throttled)
+  [2] DeepL API (Requires Free DeepL Key - 500k chars/mo, Best Quality & 0 rate limits)
+  [3] MyMemory (Free - Instant bypass if Google is rate-limiting your IP)
+Select engine [default: 1]: 
+```
+
+#### 5. Confirm Batch Pacing
+```text
+Batch Pacing: A delay between batches keeps traffic under rate limits.
+Enter delay in seconds between batches [default: 1.0]: [Press Enter]
+```
+* Default is `1.0s` for DeepL or `5.0s` for Google/MyMemory. Press **Enter** to start translating!
+
+---
+
+## ⚡ The DeepL Engine: Best Quality & Zero Rate Limits
+
+For large mods like **Path of Valheiman** (which has over 26,000 lines), **DeepL** is by far the best engine:
+* **Zero Rate Limits**: Never throttles or pauses during long translation runs.
+* **500,000 Characters Free Every Month**: Translates over 25,000 strings completely free.
+* **10x Faster**: Uses a fast 1.0-second delay between batches.
+* **Superior Quality**: Produces natural gaming and fantasy translations.
+
+### How to Get a Free DeepL API Key (Takes 2 Minutes)
+1. Visit [deepl.com/pro-api](https://www.deepl.com/pro-api).
+2. Select the **DeepL API Free** tier and sign up (it is 100% free with no monthly charges).
+3. In your DeepL account dashboard, go to:
+   **Account** → **Account Settings** → Scroll down to **Authentication Key for DeepL API**.
+4. Copy your key (it will look like `xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx:fx`).
+
+### How the Tool Remembers Your Key Safely
+When you choose DeepL in the tool:
+1. Paste your key into the console.
+2. The tool will ask:
    ```text
-   ==============================================================================
-                      VALHEIM MOD LOCALIZATION SCANNER
-   ==============================================================================
-    [ 1] Path of Valheiman               | [ 2] Adventure Backpacks
-    [ 3] Longship Upgrades               | [ 0] Custom File / Drag & Drop
-   ------------------------------------------------------------------------------
-   Select mod number [default: 1]:
+   Save key locally on this PC so you don't have to enter it again? [default: y]:
    ```
-3. **Pick your mod**: Type the number of the mod you want to translate and press **Enter**.
-4. **Choose your language**: Type your two-letter language code and press **Enter**:
-   * `de` for German
-   * `ru` for Russian
-   * `fr` for French
-   * `es` for Spanish
-   * `pl` for Polish
-   * *(See the table below for more languages!)*
-5. **Pacing Delay**: It will ask about a delay between batches (default is `5.0` seconds). Press **Enter** to accept the default, or type `15.0` if you want it to translate extra gently to avoid rate limits.
+3. Press **Enter** (`y`). The tool saves your key to a private file:
+   `BepInEx/config/.deepl_key`
+4. **On all future runs**, the tool will automatically detect your key:
+   ```text
+   Found saved DeepL key (d5bf...2:fx). Use it? [default: y]:
+   ```
+   Just press **Enter** and you're good to go!
+
+> 🔒 **Privacy Guarantee**: 
+> `.deepl_key`, `*.key`, and `.env` are protected by `.gitignore`. Your key is stored solely on your local PC and is **never** shared, uploaded, or committed to GitHub.
 
 ---
 
-### Step 4: Sit Back and Let It Work!
-* **Everything is set up on your computer first**: Before translating a single word, the tool automatically creates the needed folders, translation files, and cache files on your computer.
-* It will translate your mod in friendly batches.
-* Once it reaches 100%, it automatically installs the finished translation into your mod's folder and your game config folder!
+## ☕ Handling Rate Limits & Cooldowns
 
-> ### ☕ What if I see a "Rate Limit Cooldown" message?
-> If you are translating a huge mod with thousands of lines, free web services like Google may occasionally temporarily throttle your IP address (HTTP 429). 
-> 
-> **How the Tool Handles This Automatically**: 
-> * **Intelligent Auto-Wait & Resume**: If all free engines hit a temporary rate limit, the tool saves your progress and offers an **Auto-Wait mode with a live countdown bar**. Leave the window open, and the tool will automatically sleep, wake up when the cooldown expires, and resume translating seamlessly without you lifting a finger!
-> * **Automatic 60-Minute Cooldown**: The moment Google signals a rate limit, the tool records a 60-minute cooldown timestamp. It automatically switches to **MyMemory** backup so you don't get stuck.
-> 
-> **Your Translation Options**:
-> 1. **Built-in DeepL API (Option 2/3)**: Register for a free DeepL API key at [deepl.com/pro-api](https://www.deepl.com/pro-api) (gives you 500,000 characters free every month with 0 rate limits). The tool safely remembers your key locally in a private file (`.deepl_key`) that is ignored by Git, so you never have to re-enter it!
-> 2. **Built-in MyMemory Engine**: Translates smoothly as an automated backup without Google.
-> 3. **The 5-Second Network Reset Trick (VPN / Hotspot)**: Rate limits on free services are tied purely to your IP. Turning on your phone's mobile hotspot or switching a VPN location gives you a fresh IP immediately. You can select **Reset Cooldown & Try Google** from the startup menu to test the new IP right away.
-> 4. **Close It and Come Back Later**: You can safely close the window at any time (Ctrl+C). Every single translated batch is saved to disk immediately so you never lose progress.
+Free public services (Google & MyMemory) track IP addresses and may temporarily throttle requests if you translate thousands of lines in one sitting. 
+
+The tool handles this automatically with three flexible workarounds:
+
+### Workaround 1: Intelligent Auto-Wait & Live Countdown (Hands-Free)
+If all free engines hit a rate limit, the tool immediately saves your progress and presents:
+```text
+==============================================================================
+[Rate Limit Alert] All free translation services are temporarily throttled on your IP.
+Progress safely saved to disk! (4,200 / 23,781 strings completed)
+==============================================================================
+Options:
+  [1] Auto-Wait: Pause and auto-resume in 45m when cooldown expires (Default)
+  [2] Save & Exit: Close now safely (pick up anytime later by running again)
+  [3] Hotspot/VPN: Switched to phone mobile hotspot / VPN? Press Enter to retry immediately.
+```
+* If you pick **`[1] Auto-Wait`** (or just press **Enter**), a live countdown bar starts ticking:
+  ```text
+  Cooling down IP... Resuming in 44m 12s [====--------------------] (Ctrl+C to exit)
+  ```
+* When the timer reaches 0, the script wakes up and **resumes translating automatically**!
+* You can press `Ctrl+C` at any time to save and exit without losing a single line.
 
 ---
 
-### Step 5: See It in Valheim!
-1. Start Valheim (or stay in-game if it's already running!).
+### Workaround 2: The 5-Second Phone Hotspot / VPN Reset (Instant)
+Rate limits on free web services are tied strictly to your **internet IP address**, not your computer or identity.
+
+1. Turn on your smartphone's **Mobile Hotspot**.
+2. Connect your PC to the hotspot (or toggle a VPN server).
+3. Your PC gets a brand new IP address in 5 seconds.
+4. Select **`[3] Hotspot/VPN`** (or **Reset Cooldown** at startup) and press **Enter**—**your rate limit is instantly reset to 0**!
+
+---
+
+### Workaround 3: DeepL Free Key
+Switch to DeepL (Option `2`/`3` in the engine menu) to bypass Google/MyMemory IP limits entirely.
+
+---
+
+## 🛡️ Why You Are Never Left With Broken or Partial Files
+
+A major concern players have is ending up with broken, half-translated game files. Here is how this tool protects you:
+
+1. **Instant Real-Time Caching**: Every batch of 50 strings is written directly to disk and saved to `.cache.json` immediately.
+2. **Safe Game Fallback**: If translation stops partway through, any unfinished lines safely retain their original English text. Valheim will load the file without crashing, and you will never see broken internal tags (like `@skill_bonus_402`).
+3. **One-Click Resumption**: When you re-run the tool later, Option 1 (`Keep translated lines, translate remaining lines`) is selected by default. It skips the completed lines and picks up exactly where it stopped.
+
+---
+
+## 🎮 How to See It in Valheim
+
+1. Start Valheim (or leave it running!).
 2. Go to **Settings** → **Language** → Select your language (e.g. *Deutsch*).
-3. **Hot-Reload Trick (No Game Restart Needed!)**:
-   * If Valheim is already running, simply switch the language away (e.g. to English) and then switch it right back to your language.
-   * Valheim will reload the localization files instantly on the spot!
-4. **Verify It Worked**:
-   * Open `BepInEx/LogOutput.log` and search for:
-     `Localization <language>: N strings from <file>.txt`
-   * You'll see the exact count of lines loaded from your translation file!
-5. Jump into your world and enjoy your mod in your language! 🍻
+3. **Instant Hot-Reload Trick (No Game Restart Required)**:
+   * If Valheim is already running, switch the in-game language to English and then switch it right back to your language.
+   * Valheim immediately reloads all translation files from disk!
+4. Jump into your world and enjoy your mods in your language! 🍻
 
 ---
 
 ## 🔄 What Happens When a Mod Updates?
 
-When your mod gets an update with new skills or items:
+When a mod developer releases an update with new skills, items, or quests:
 
-* **Your Translations Always Win and Never Get Overwritten**:
-  The tool installs your files into both the mod's plugin folder and your profile's config folder (e.g. `BepInEx/config/<ModName>.translations/`). Mod managers (Gale, Thunderstore, r2modman) **never touch the config folder**, so your translations survive mod updates completely intact and override whatever ships with the mod.
-* **Updating with the Tool**:
-  1. Double-click `run_translation.bat` again in your profile folder.
-  2. The tool checks your existing translation:
-     * **Unchanged lines are reused instantly from your cache** (no waiting, no re-translating).
-     * **Only the brand new or changed lines** get translated.
-  3. The whole update usually finishes in **just a few seconds**!
-
-## 🧩 Translating Incomplete or Existing Files
-
-If a mod already has a partial translation file, or you interrupted a translation earlier, the tool automatically inspects the file, shows an exact breakdown of completed vs remaining lines, and gives you three smart options:
-
-1. **Option 1: Keep translated lines, translate all remaining/English lines (Default)**
-   * Every line that has already been translated is reused instantly with **zero wait time and zero API calls**.
-   * Only untranslated or missing keys are queued for translation, completing the file seamlessly.
-2. **Option 2: Keep existing translations as-is (translate ONLY completely missing lines)**
-   * Leaves existing lines exactly as they are on disk and only fills in keys that don't exist in the file at all.
-3. **Option 3: Re-translate everything from scratch**
-   * Ignores existing translations and performs a fresh, clean translation from the official English master.
+* **Your Translations Survive Mod Updates**: The tool writes to both the mod's plugin folder and your profile's `BepInEx/config/<ModName>.translations/` folder. Mod managers (Thunderstore, Gale, r2modman) **never erase the config folder**, so your translations are permanently preserved.
+* **Updating is Instant**:
+  1. Double-click `run_translation.bat`.
+  2. All unchanged lines are reused instantly from your cache in milliseconds.
+  3. Only the brand new strings are translated.
+  4. Mod updates finish in just a few seconds!
 
 ---
 
@@ -156,6 +249,6 @@ If a mod already has a partial translation file, or you interrupted a translatio
 
 ---
 
-## 💬 Share With the Mod Author!
+## 💬 Share With the Mod Community!
 
-Once you've translated a mod, consider dropping the translated file into the mod's Discord channel! Mod developers love having community translations and will often include your work officially in future updates so other players can enjoy it too.
+Once you've translated a mod, share your translation file in the mod developer's Discord channel! Community developers appreciate translations and often package them into official releases so players worldwide can benefit.
