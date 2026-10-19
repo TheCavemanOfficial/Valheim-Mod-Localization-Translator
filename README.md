@@ -29,7 +29,7 @@ The easiest way to use this tool is to drop it directly into your mod profile fo
   2. Click **Settings** on the left sidebar.
   3. Click **"Browse profile folder"** (opens your profile directory in File Explorer).
 * **Gale Mod Manager**:
-  1. Click your active profile's menu/folder icon and select **Open profile folder**.
+  1. Click your active profile's File button and select **Open profile folder**.
 * **Manual / Vanilla Installation**:
   1. Open your main Valheim game directory (where `valheim.exe` and `BepInEx` live).
 
