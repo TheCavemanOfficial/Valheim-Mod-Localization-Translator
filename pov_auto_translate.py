@@ -78,6 +78,11 @@ VALHEIM_LANG_MAP = {
     "ukrainian": "ukrainian",
 }
 
+# Credit stamped into every translation file this tool writes.
+# Text files get it as a "#" comment header; JSON (no comments) gets it as an extra, unused key.
+TRANSLATION_CREDIT = "Translation done thanks to The Caveman Official"
+TRANSLATION_CREDIT_JSON_KEY = "_translation_credit"
+
 # Regex for protecting game formatting, wiki links, and variables
 TOKEN_PATTERN = re.compile(
     r'(<link="[^"]*">|</link>|<link=[^>]*>|'
@@ -928,7 +933,7 @@ def main():
     def write_output_to_disk():
         plan_lookup = {p[1]: p[2] for p in plan if p[1]}
         if is_json:
-            out_data = {}
+            out_data = {TRANSLATION_CREDIT_JSON_KEY: TRANSLATION_CREDIT}
             for item in plan:
                 k = item[1]
                 if item[0] == "reuse":
@@ -947,7 +952,7 @@ def main():
                 with open(config_dest_file, "w", encoding="utf-8") as f:
                     json.dump(out_data, f, ensure_ascii=False, indent=2)
         else:
-            lines_out = []
+            lines_out = [f"# {TRANSLATION_CREDIT}\n"]
             for item in plan:
                 if item[0] == "comment":
                     lines_out.append(item[2])
